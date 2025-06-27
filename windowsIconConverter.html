@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Image → ICO Converter (Animated Modern UI)</title>
+  <style>
+    :root {
+      --primary: #0052cc;
+      --primary-hover: #0066ff;
+      --bg: #f9faff;
+      --card-bg: #ffffff;
+      --text: #333333;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background-color: var(--bg);
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 600px;
+      animation: slideIn 0.6s ease-out;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+      text-align: center;
+    }
+    p {
+      margin-top: 0.5rem;
+      text-align: center;
+      color: #555;
+    }
+    input[type="file"] {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      border: 1px solid #ccc;
+      transition: border-color 0.3s;
+    }
+    input[type="file"]:hover {
+      border-color: var(--primary);
+    }
+    #previewImage {
+      display: none;
+      margin: 1rem auto;
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      opacity: 0;
+      animation: fadeIn 0.8s forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    .sizes {
+      margin: 1rem 0;
+      text-align: center;
+    }
+    .sizes label {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      margin: 0.3rem;
+    }
+    .sizes input {
+      display: none;
+    }
+    .sizes span {
+      display: inline-block;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+      transition: background 0.3s, color 0.3s, transform 0.2s;
+      user-select: none;
+    }
+    .sizes input:checked + span {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .sizes span:hover {
+      transform: scale(1.05);
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    button:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>画像 → Windowsアイコン変換</h1>
+    <p>ファイルを選択し、解像度をチェックしてから変換してください。</p>
+
+    <input type="file" id="imageInput" accept="image/*">
+    <img id="previewImage" alt="Preview">
+
+    <div class="sizes">
+      出力解像度（px）:
+      <label><input type="checkbox" value="16" checked><span>16×16</span></label>
+      <label><input type="checkbox" value="32" checked><span>32×32</span></label>
+      <label><input type="checkbox" value="48" checked><span>48×48</span></label>
+      <label><input type="checkbox" value="64" checked><span>64×64</span></label>
+      <label><input type="checkbox" value="128" checked><span>128×128</span></label>
+      <label><input type="checkbox" value="256" checked><span>256×256</span></label>
+    </div>
+
+    <button id="convertBtn" disabled>ICO 変換</button>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('imageInput');
+    const convertBtn = document.getElementById('convertBtn');
+    const previewImage = document.getElementById('previewImage');
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) {
+        previewImage.style.display = 'none';
+        convertBtn.disabled = true;
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewImage.src = reader.result;
+        previewImage.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      convertBtn.disabled = false;
+    });
+
+    function getSelectedSizes() {
+      return Array.from(document.querySelectorAll('.sizes input:checked'))
+        .map(cb => parseInt(cb.value, 10))
+        .sort((a, b) => a - b);
+    }
+
+    async function generateICO(imageBitmap, sizes) {
+      const images = [];
+      for (const size of sizes) {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imageBitmap, 0, 0, size, size);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        const buffer = await blob.arrayBuffer();
+        images.push({ size, buffer });
+      }
+
+      const count = images.length;
+      const HEADER_SIZE = 6 + count * 16;
+      let dataOffset = HEADER_SIZE;
+      let totalSize = HEADER_SIZE + images.reduce((sum, img) => sum + img.buffer.byteLength, 0);
+
+      const icoBuf = new ArrayBuffer(totalSize);
+      const view = new DataView(icoBuf);
+      let pos = 0;
+
+      // ICONDIR
+      view.setUint16(pos, 0, true); pos += 2;
+      view.setUint16(pos, 1, true); pos += 2;
+      view.setUint16(pos, count, true); pos += 2;
+
+      // ICONDIRENTRY
+      for (const img of images) {
+        const w = img.size === 256 ? 0 : img.size;
+        view.setUint8(pos++, w);
+        view.setUint8(pos++, w);
+        view.setUint8(pos++, 0);
+        view.setUint8(pos++, 0);
+        view.setUint16(pos, 1, true); pos += 2;
+        view.setUint16(pos, 32, true); pos += 2;
+        view.setUint32(pos, img.buffer.byteLength, true); pos += 4;
+        view.setUint32(pos, dataOffset, true); pos += 4;
+        dataOffset += img.buffer.byteLength;
+      }
+
+      // 画像データ書き込み
+      let dataPos = HEADER_SIZE;
+      for (const img of images) {
+        new Uint8Array(icoBuf, dataPos, img.buffer.byteLength)
+          .set(new Uint8Array(img.buffer));
+        dataPos += img.buffer.byteLength;
+      }
+
+      return new Blob([icoBuf], { type: 'application/octet-stream' });
+    }
+
+    convertBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      const sizes = getSelectedSizes();
+      if (!sizes.length) {
+        alert('少なくとも 1 つ以上のサイズを選択してください。');
+        return;
+      }
+      const bitmap = await createImageBitmap(file);
+      const icoBlob = await generateICO(bitmap, sizes);
+      const url = URL.createObjectURL(icoBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'icon.ico';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
